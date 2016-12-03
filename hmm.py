@@ -36,11 +36,9 @@ class HMM(Classifier):
                 else:
                     self.feature_list[feature] = self.features
                     self.features += 1
-            instance.feature_vector = [self.feature_list[f] for f in instance.features()]
-
-        #make codebooks
-        self.fill_label2index(instance_list)
-        self.index2label = {v: k for k, v in self.label2index.iteritems()}
+            instance.feature_vector = self.make_feature_vector(instance)
+            
+        self.make_codebooks(instance_list)
 
         #transition count table
         self.transition_count_table = numpy.ones((self.labels, self.labels))
@@ -49,6 +47,10 @@ class HMM(Classifier):
         #feature count table
         self.feature_count_table = numpy.ones((self.features, self.labels))
         self.fill_feature_count_table(instance_list)
+
+    def make_codebooks(self, instance_list):
+        self.fill_label2index(instance_list)
+        self.index2label = {v: k for k, v in self.label2index.iteritems()}
 
     def fill_label2index(self, instance_list):
         for instance in instance_list:
@@ -61,7 +63,7 @@ class HMM(Classifier):
 
     def fill_transition_count_table(self, instance_list):
         for instance in instance_list:
-            for i in range(1, len(instance.label)):
+            for i in range(0, len(instance.label)):
                 a = self.label2index[instance.label[i]]
                 b = self.label2index[instance.label[i-1]]
                 self.transition_count_table[a][b] += 1
@@ -73,6 +75,8 @@ class HMM(Classifier):
                 b = self.label2index[instance.label[i]]
                 self.feature_count_table[a][b] += 1
 
+    def make_feature_vector(self, instance):
+        return [self.feature_list[f] for f in instance.features() if f in self.feature_list]
 
     def train(self, instance_list):
         """Fit parameters for hidden markov model
@@ -89,11 +93,9 @@ class HMM(Classifier):
         Returns None
         """
         self._collect_counts(instance_list)
-
-        #TODO: estimate the parameters from the count tables
-
         self.populate_transition_matrix()
         self.populate_emission_matrix()
+
 
     def populate_transition_matrix(self):
         #probability from state a to state b
@@ -112,15 +114,27 @@ class HMM(Classifier):
 
         Returns a list of labels e.g. ['B','I','O','O','B']
         """
+        instance.feature_vector = self.make_feature_vector(instance)
+
         backtrace_pointers = self.dynamic_programming_on_trellis(instance, False)
-        best_sequence = []
+        a = len(backtrace_pointers[0][0]) - 1
+        pointers = []
+        y = self.labels-1
+        for x in reversed(range(0,a)):
+            pointers.append(backtrace_pointers[1][y][x])
+            y = backtrace_pointers[1][y][x]
+
+        best_sequence = [self.index2label[x] for x in pointers]
+        print best_sequence
         return best_sequence
 
-    def compute_observation_loglikelihood(self, instance):
-        """Compute and return log P(X|parameters) = loglikelihood of observations"""
-        trellis = self.dynamic_programming_on_trellis(instance, True)
-        loglikelihood = 0.0
-        return loglikelihood
+
+
+    # def compute_observation_loglikelihood(self, instance):
+    #     """Compute and return log P(X|parameters) = loglikelihood of observations"""
+    #     trellis = self.dynamic_programming_on_trellis(instance, True)
+    #     loglikelihood = 0.0
+    #     return loglikelihood
 
     def dynamic_programming_on_trellis(self, instance, run_forward_alg=True):
         """Run Forward algorithm or Viterbi algorithm
@@ -134,16 +148,27 @@ class HMM(Classifier):
         Returns trellis filled up with the forward probabilities
         and backtrace pointers for finding the best sequence
         """
+
+        instance.feature_vector = self.make_feature_vector(instance)
+
         #TODO:Initialize trellis and backtrace pointers
-        trellis = numpy.zeros((len(instance.feature_vector), self.labels))
-        backtrace_pointers = numpy.zeros((len(instance.feature_vector),self.labels))
-
+        trellis = numpy.zeros((self.labels, len(instance.feature_vector)))
+        backtrace_pointers = numpy.zeros((self.labels, len(instance.feature_vector)))
         #TODO:Traverse through the trellis here
-
         if run_forward_alg:
             pass
         else:
-            pass
+            f = lambda x: trellis[x][t - 1] * self.transition_matrix[x][s]
+            for i in self.index2label:
+                trellis[i][0] = self.transition_matrix[0][i] * self.emission_matrix[instance.feature_vector[0]][i]
+            for t in range(1, len(instance.feature_vector)):
+                for s in self.index2label:
+                    trellis[s][t] = max([trellis[k][t-1] * self.transition_matrix[k][s] * self.emission_matrix[instance.feature_vector[t]][s] for k in self.index2label])
+                    backtrace_pointers[s][t] = max(self.index2label, key=f)
+            f = lambda x: trellis[x][t] * self.transition_matrix[x][s]
+            final = self.labels - 1
+            trellis[final][t] = max([trellis[k][t] * self.transition_matrix[k][final] for k in self.index2label])
+            backtrace_pointers[final][t] = max(self.index2label, key=f)
 
         return (trellis, backtrace_pointers)
 
@@ -183,18 +208,18 @@ class HMM(Classifier):
     #     """
     #     return True
 
-    def _run_forward_backward(self, instance):
-        """Forward-backward algorithm for HMM using trellis (EXTRA CREDIT)
-
-        Fill up the alpha and beta trellises (the same notation as
-        presented in the lecture and Martin and Jurafsky)
-        You can reuse your forward algorithm here
-
-        return a tuple of tables consisting of alpha and beta tables
-        """
-        alpha_table = numpy.zeros((1,1))
-        beta_table = numpy.zeros((1,1))
-        #TODO: implement forward backward algorithm right here
-
-        return (alpha_table, beta_table)
+    # def _run_forward_backward(self, instance):
+    #     """Forward-backward algorithm for HMM using trellis (EXTRA CREDIT)
+    #
+    #     Fill up the alpha and beta trellises (the same notation as
+    #     presented in the lecture and Martin and Jurafsky)
+    #     You can reuse your forward algorithm here
+    #
+    #     return a tuple of tables consisting of alpha and beta tables
+    #     """
+    #     alpha_table = numpy.zeros((1,1))
+    #     beta_table = numpy.zeros((1,1))
+    #     #TODO: implement forward backward algorithm right here
+    #
+    #     return (alpha_table, beta_table)
 

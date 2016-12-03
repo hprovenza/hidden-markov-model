@@ -16,8 +16,8 @@ class Document(object):
     max_display_data = 30 # limit for data abbreviation
 
     def __init__(self, data, label=None, source=None):
-        self.data = data 
-        self.label = label
+        self.data = data
+        self.label = ["__START__"] + label + ["__END__"]
         self.source = source
         self.feature_vector = []
 
@@ -35,7 +35,8 @@ class Document(object):
 
     def features(self):
         """A list of features that characterize this document."""
-        return self.data
+        return [("__START__", "__START__")] + self.data + [("__END__", "__END__")]
+
 
 class Corpus(object):
     """An abstract collection of documents."""
