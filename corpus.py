@@ -17,7 +17,7 @@ class Document(object):
 
     def __init__(self, data, label=None, source=None):
         self.data = data
-        self.label = ["__START__"] + label + ["__END__"]
+        self.label = label
         self.source = source
         self.feature_vector = []
 
@@ -35,7 +35,7 @@ class Document(object):
 
     def features(self):
         """A list of features that characterize this document."""
-        return [("__START__", "__START__")] + self.data + [("__END__", "__END__")]
+        return  self.data
 
 
 class Corpus(object):

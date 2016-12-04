@@ -64,13 +64,13 @@ class HMM(Classifier):
     def fill_transition_count_table(self, instance_list):
         for instance in instance_list:
             for i in range(0, len(instance.label)):
-                a = self.label2index[instance.label[i]]
-                b = self.label2index[instance.label[i-1]]
+                a = self.label2index[instance.label[i-1]]
+                b = self.label2index[instance.label[i]]
                 self.transition_count_table[a][b] += 1
 
     def fill_feature_count_table(self, instance_list):
         for instance in instance_list:
-            for i in range(0, len(instance.features()) - 1):
+            for i in range(0, len(instance.features())):
                 a = self.feature_list[instance.features()[i]]
                 b = self.label2index[instance.label[i]]
                 self.feature_count_table[a][b] += 1
@@ -96,7 +96,6 @@ class HMM(Classifier):
         self.populate_transition_matrix()
         self.populate_emission_matrix()
 
-
     def populate_transition_matrix(self):
         #probability from state a to state b
         self.transition_matrix = self.transition_count_table/self.transition_count_table.sum(axis=1)[:,None]
@@ -118,13 +117,14 @@ class HMM(Classifier):
 
         backtrace_pointers = self.dynamic_programming_on_trellis(instance, False)
         a = len(backtrace_pointers[0][0]) - 1
-        pointers = []
-        y = self.labels-1
-        for x in reversed(range(0,a)):
+        f = lambda x: backtrace_pointers[0][x][a]
+        l = [x for x in self.index2label]
+        y = max(l, key=f)
+        pointers = [y]
+        for x in reversed(range(0, a)):
             pointers.append(backtrace_pointers[1][y][x])
             y = backtrace_pointers[1][y][x]
-
-        best_sequence = [self.index2label[x] for x in pointers]
+        best_sequence = list(reversed([self.index2label[x] for x in pointers]))
         print best_sequence
         return best_sequence
 
@@ -150,7 +150,6 @@ class HMM(Classifier):
         """
 
         instance.feature_vector = self.make_feature_vector(instance)
-
         #TODO:Initialize trellis and backtrace pointers
         trellis = numpy.zeros((self.labels, len(instance.feature_vector)))
         backtrace_pointers = numpy.zeros((self.labels, len(instance.feature_vector)))
@@ -165,10 +164,11 @@ class HMM(Classifier):
                 for s in self.index2label:
                     trellis[s][t] = max([trellis[k][t-1] * self.transition_matrix[k][s] * self.emission_matrix[instance.feature_vector[t]][s] for k in self.index2label])
                     backtrace_pointers[s][t] = max(self.index2label, key=f)
-            f = lambda x: trellis[x][t] * self.transition_matrix[x][s]
-            final = self.labels - 1
-            trellis[final][t] = max([trellis[k][t] * self.transition_matrix[k][final] for k in self.index2label])
-            backtrace_pointers[final][t] = max(self.index2label, key=f)
+            # f = lambda x: trellis[x][t] * self.transition_matrix[x][s]
+            # final = self.labels - 1
+            #
+            # trellis[final][t] = max([trellis[k][final] * self.transition_matrix[k][final] for k in self.index2label])
+            # backtrace_pointers[final][t] = max(self.index2label, key=f)
 
         return (trellis, backtrace_pointers)
 
