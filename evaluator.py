@@ -38,7 +38,9 @@ class ConfusionMatrix(object):
         self.matrix = numpy.zeros((self.num_classes,self.num_classes))
         
     def add_data(self, prediction_list, true_answer_list):
-        for	prediction, true_answer in zip(prediction_list, true_answer_list): 
+        print "prediction ", prediction_list
+        print "truth      ", true_answer_list
+        for	prediction, true_answer in zip(prediction_list, true_answer_list):
             self.matrix[self.label_codebook[prediction], self.label_codebook[true_answer]] += 1
             
     def compute_precision(self):

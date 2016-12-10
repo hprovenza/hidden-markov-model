@@ -28,7 +28,23 @@ class HMM(Classifier):
 
         Returns None
         """
-        #get total feature and label counts and set feature vectors
+        feature_counter = {}
+        for instance in instance_list:
+            for feature in instance.features():
+                if feature in feature_counter:
+                    feature_counter[feature] += 1
+                else:
+                    feature_counter[feature] = 1
+        for instance in instance_list:
+            d = []
+            for feature in instance.features():
+                if feature_counter[feature] < 3:
+                    d.append('<UNK>')
+                else:
+                    d.append(feature)
+            instance.data = d
+
+
         for instance in instance_list:
             for feature in instance.features():
                 if feature in self.feature_list:
@@ -37,7 +53,7 @@ class HMM(Classifier):
                     self.feature_list[feature] = self.features
                     self.features += 1
             instance.feature_vector = self.make_feature_vector(instance)
-            
+
         self.make_codebooks(instance_list)
 
         #transition count table
@@ -63,14 +79,14 @@ class HMM(Classifier):
 
     def fill_transition_count_table(self, instance_list):
         for instance in instance_list:
-            for i in range(0, len(instance.label)):
+            for i in range(0, len(instance.label) - 1):
                 a = self.label2index[instance.label[i-1]]
                 b = self.label2index[instance.label[i]]
                 self.transition_count_table[a][b] += 1
 
     def fill_feature_count_table(self, instance_list):
         for instance in instance_list:
-            for i in range(0, len(instance.features())):
+            for i in range(0, len(instance.features()) - 1):
                 a = self.feature_list[instance.features()[i]]
                 b = self.label2index[instance.label[i]]
                 self.feature_count_table[a][b] += 1
@@ -103,6 +119,16 @@ class HMM(Classifier):
     def populate_emission_matrix(self):
         self.emission_matrix = self.feature_count_table/self.feature_count_table.sum(axis=0)[None,:]
 
+    def make_feature_vector_classify(self, instance):
+        output = []
+        for f in instance.features():
+            try:
+                output.append(self.feature_list[f])
+            except KeyError:
+                output.append(self.feature_list['<UNK>'])
+        return output
+
+
     def classify(self, instance):
         """Viterbi decoding algorithm
 
@@ -113,7 +139,7 @@ class HMM(Classifier):
 
         Returns a list of labels e.g. ['B','I','O','O','B']
         """
-        instance.feature_vector = self.make_feature_vector(instance)
+        instance.feature_vector = self.make_feature_vector_classify(instance)
 
         backtrace_pointers = self.dynamic_programming_on_trellis(instance, False)
         a = len(backtrace_pointers[0][0]) - 1
@@ -121,13 +147,13 @@ class HMM(Classifier):
         l = [x for x in self.index2label]
         y = max(l, key=f)
         pointers = [y]
-        for x in reversed(range(0, a)):
+        for x in reversed(range(1, a)):
             pointers.append(backtrace_pointers[1][y][x])
-            y = backtrace_pointers[1][y][x]
+            y = int(backtrace_pointers[1][y][x])
         best_sequence = list(reversed([self.index2label[x] for x in pointers]))
-        print best_sequence
-        return best_sequence
-
+        print instance.data
+        print len(instance.data)
+        return best_sequence + ['O']
 
 
     # def compute_observation_loglikelihood(self, instance):
@@ -149,7 +175,6 @@ class HMM(Classifier):
         and backtrace pointers for finding the best sequence
         """
 
-        instance.feature_vector = self.make_feature_vector(instance)
         #TODO:Initialize trellis and backtrace pointers
         trellis = numpy.zeros((self.labels, len(instance.feature_vector)))
         backtrace_pointers = numpy.zeros((self.labels, len(instance.feature_vector)))
@@ -157,19 +182,15 @@ class HMM(Classifier):
         if run_forward_alg:
             pass
         else:
-            f = lambda x: trellis[x][t - 1] * self.transition_matrix[x][s]
+            f = lambda x: trellis[x][t - 1] * self.transition_matrix[s][x]
             for i in self.index2label:
                 trellis[i][0] = self.transition_matrix[0][i] * self.emission_matrix[instance.feature_vector[0]][i]
             for t in range(1, len(instance.feature_vector)):
                 for s in self.index2label:
                     trellis[s][t] = max([trellis[k][t-1] * self.transition_matrix[k][s] * self.emission_matrix[instance.feature_vector[t]][s] for k in self.index2label])
                     backtrace_pointers[s][t] = max(self.index2label, key=f)
-            # f = lambda x: trellis[x][t] * self.transition_matrix[x][s]
-            # final = self.labels - 1
-            #
-            # trellis[final][t] = max([trellis[k][final] * self.transition_matrix[k][final] for k in self.index2label])
-            # backtrace_pointers[final][t] = max(self.index2label, key=f)
-
+        print trellis[0]
+        print trellis[1]
         return (trellis, backtrace_pointers)
 
     # def train_semisupervised(self, unlabeled_instance_list, labeled_instance_list=None):

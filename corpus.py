@@ -119,6 +119,60 @@ class NPChunkCorpus(Corpus):
                     self.documents.append(document_class(data, labels, datafile))
                     data = []
                     labels = []
+
+class WordOnlyNPChunkCorpus(Corpus):
+    """
+    NP Chunking dataset from wsj. each document is one sentence, each sentence is a list of (word,postag) pairs.
+    """
+
+    def load(self, datafile, document_class):
+        """
+        load sentences
+        """
+        data = []
+        labels = []
+        with open(datafile, "r") as file:
+            for line in file:
+                line = line.strip()
+                if line:
+                    triple = line.split()
+                    label = triple[0]
+                    word = triple[1]
+                    postag = triple[2]
+                    data.append((word))
+                    labels.append(label)
+                else:
+                    assert len(data) > 0 and len(data) == len(labels)
+                    self.documents.append(document_class(data, labels, datafile))
+                    data = []
+                    labels = []
+
+class POSOnlyNPChunkCorpus(Corpus):
+    """
+    NP Chunking dataset from wsj. each document is one sentence, each sentence is a list of (word,postag) pairs.
+    """
+
+    def load(self, datafile, document_class):
+        """
+        load sentences
+        """
+        data = []
+        labels = []
+        with open(datafile, "r") as file:
+            for line in file:
+                line = line.strip()
+                if line:
+                    triple = line.split()
+                    label = triple[0]
+                    word = triple[1]
+                    postag = triple[2]
+                    data.append((postag))
+                    labels.append(label)
+                else:
+                    assert len(data) > 0 and len(data) == len(labels)
+                    self.documents.append(document_class(data, labels, datafile))
+                    data = []
+                    labels = []
                 
 class ReviewCorpus(Corpus):
     """Yelp dataset challenge. A collection of business reviews. 
